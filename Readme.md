@@ -97,6 +97,9 @@ Inject (`%00`), (`%20`) and etc into parameter values:
 
 You can see a complete guide at <a href="https://medium.com/p/1d4f86b7d630" target="_blank"> this address.</a>
 
+### Change HTTP Version
+Tests different HTTP protocol versions (`HTTP/0.9`, `HTTP/1.0`, `HTTP/1.1`, `HTTP/2.0`, `HTTP/3.0`)
+
 ## Contributing
 Contributions are welcome! To contribute:
 1. Fork the repository.
