@@ -355,7 +355,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
         return menu_list
 
     def showOptionsDialog(self, invocation):
-        # Create checkboxes for options
+    # Create checkboxes for options
         add_headers_checkbox = JCheckBox("Add Custom Headers", True)
         change_user_agent_checkbox = JCheckBox("Change User Agent", True)
         using_capital_letters_checkbox = JCheckBox("Using Capital Letters", True)
@@ -365,7 +365,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
         route_alteration_checkbox = JCheckBox("The Route Alteration", True)
         AddNS_checkbox = JCheckBox("Adding Null Bytes, spaces and etc", True)
         Encoding_checkbox = JCheckBox("Encoding", True)
-
+        http_version_checkbox = JCheckBox("HTTP Version Variations", True)
+    
         # Text field for specifying parameter names
         laable= JLabel("Enter Specific Parameters (Optional)")
         parameter_text_field = JTextField(20)
@@ -382,12 +383,13 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
         panel.add(route_alteration_checkbox)
         panel.add(Encoding_checkbox)
         panel.add(AddNS_checkbox)
+        panel.add(http_version_checkbox)
         panel.add(laable)
         panel.add(parameter_text_field)  # Add the text field
-        
+    
         # Show options dialog
         result = JOptionPane.showConfirmDialog(None, panel, "Select Options", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE)
-        
+    
         # If OK was clicked, process the request with selected options
         if result == JOptionPane.OK_OPTION:
             add_headers = add_headers_checkbox.isSelected()
@@ -399,16 +401,45 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
             route_alteration = route_alteration_checkbox.isSelected()
             AddNS = AddNS_checkbox.isSelected()
             Encoding = Encoding_checkbox.isSelected()
+            http_version = http_version_checkbox.isSelected()
             params_to_modify = [param.strip() for param in parameter_text_field.getText().split(",")] if parameter_text_field.getText() else None
-            threading.Thread(target=self.modify_and_send_request, args=(invocation, add_headers, change_user_agent, using_capital_letters, random_parameter, HttPP, change_method, route_alteration, Encoding, AddNS, params_to_modify)).start()
+        
+            threading.Thread(target=self.modify_and_send_request, args=(invocation, add_headers, change_user_agent, using_capital_letters, random_parameter, HttPP, change_method, route_alteration, Encoding, AddNS, http_version, params_to_modify)).start()
 
-    def modify_and_send_request(self, invocation, add_headers, change_user_agent, using_capital_letters, random_parameter, HttPP, change_method, route_alteration, Encoding, AddNS, params_to_modify):
+    def modify_and_send_request(self, invocation, add_headers, change_user_agent, using_capital_letters, random_parameter, HttPP, change_method, route_alteration, Encoding, AddNS, http_version, params_to_modify):
         selected_message = invocation.getSelectedMessages()[0]
         headers, body = self.getRequestHeadersAndBody(selected_message)
         headersp = headers
         bodyp = body
         path, url = self.getpath(selected_message)
         http_service = selected_message.getHttpService()
+
+        if http_version:
+            http_versions = ["HTTP/0.9", "HTTP/1.0", "HTTP/1.1", "HTTP/2.0", "HTTP/3"]
+        
+            for version in http_versions:
+                modified_headers = headers[:]
+                first_line = modified_headers[0].split(" ")
+                first_line[2] = version
+                modified_headers[0] = " ".join(first_line)
+
+                new_message = self._helpers.buildHttpMessage(modified_headers, body)
+                response = self._callbacks.makeHttpRequest(http_service, new_message)
+            
+                status_code = self._helpers.analyzeResponse(response.getResponse()).getStatusCode()
+                request_info = self._helpers.analyzeRequest(response)
+                path1 = request_info.getUrl().getPath()
+                query1 = request_info.getUrl().getQuery()
+
+                url1 = path1 if query1 is None else path1 + "?" + query1
+                method1 = request_info.getMethod()
+                host1 = response.getHttpService().getHost()
+                content_length1 = len(response.getResponse())
+
+                self.log_table_model.addRow([self.request_counter, host1, method1, url1, status_code, content_length1])
+                self.messages.append(response)
+                self.request_counter += 1
+
         # Modify headers if "Add Custom Headers" is selected
         if add_headers:
             for header in self.HEADERS_LIST:
